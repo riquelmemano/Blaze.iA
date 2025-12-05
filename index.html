@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Blaze.AI — Conversa</title>
+<link rel="icon" href="data:;base64,iVBORw0KGgo=">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0A0F2A">
+<style>
+:root{
+  --bg:#071026; --panel:#0F1630; --accent:#4A90E2; --muted:#9FB0E6; --glass:rgba(255,255,255,0.03);
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;}
+body{background:linear-gradient(180deg,var(--bg),#051127);color:#E8EEFF;display:flex;flex-direction:column}
+.app{max-width:1100px;margin:18px auto;border-radius:12px;overflow:hidden;display:flex;height:calc(100vh - 36px);box-shadow:0 20px 60px rgba(2,6,23,0.7)}
+.sidebar{width:320px;background:linear-gradient(180deg,var(--panel),#07102a);padding:18px;border-right:1px solid rgba(255,255,255,0.03);display:flex;flex-direction:column;gap:12px}
+.brand{display:flex;align-items:center;gap:12px}
+.logo{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#ff7b00,#ff3b7f);font-weight:700;color:#fff}
+.brand h2{font-size:1.05rem;margin:0}
+.controls{display:flex;gap:8px}
+.btn{padding:10px 12px;border-radius:10px;border:none;background:transparent;color:var(--muted);border:1px solid rgba(255,255,255,0.03);cursor:pointer}
+.primary{background:linear-gradient(90deg,var(--accent),#357ABD);color:white;border:none}
+.chats{flex:1;overflow:auto;padding-top:6px;display:flex;flex-direction:column;gap:8px}
+.chat-item{padding:10px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.02);cursor:pointer}
+.chat-item.active{background:rgba(74,144,226,0.12)}
+.footer-small{font-size:0.85rem;color:var(--muted);padding-top:8px}
+.main{flex:1;display:flex;flex-direction:column;background:linear-gradient(180deg,#07102a, #041026)}
+.header{display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid rgba(255,255,255,0.02)}
+.header h3{margin:0}
+.container{flex:1;display:flex;flex-direction:column;min-height:0}
+.chat-area{flex:1;padding:18px;overflow:auto;display:flex;flex-direction:column;gap:12px}
+.msg{max-width:78%;padding:12px 14px;border-radius:12px;box-shadow:0 6px 20px rgba(2,6,23,0.5);white-space:pre-wrap}
+.msg.user{align-self:flex-end;background:linear-gradient(180deg,var(--accent),#357ABD);color:white;border-bottom-right-radius:6px}
+.msg.bot{align-self:flex-start;background:rgba(255,255,255,0.03);color:var(--muted);border-left:4px solid rgba(78,167,255,0.12)}
+.typing{font-style:italic;color:var(--muted)}
+.composer{display:flex;padding:12px;border-top:1px solid rgba(255,255,255,0.02);gap:10px;align-items:center}
+.input{flex:1;padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.03);background:transparent;color:inherit;outline:none}
+.icon-btn{padding:10px;border-radius:10px;border:none;background:transparent;color:var(--muted);cursor:pointer}
+.tabbar{display:flex;gap:8px;padding:8px;background:rgba(0,0,0,0.02);border-radius:10px}
+.small{font-size:0.9rem;color:var(--muted)}
+.modal {position:fixed;left:0;top:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:rgba(2,6,23,0.6)}
+.card{background:linear-gradient(180deg,#07102b,#0c1530);padding:18px;border-radius:12px;width:380px;box-shadow:0 20px 60px rgba(2,6,23,0.6)}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+.field input{padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:transparent;color:inherit}
+.notice{font-size:0.85rem;color:var(--muted);margin-bottom:8px}
+.bad{color:#ff9b9b}
+@media (max-width:900px){
+  .app{flex-direction:column;height:100vh}
+  .sidebar{width:100%;display:flex;flex-direction:row;overflow:auto}
+  .main{flex:1}
+  .chat-item{min-width:200px}
+}
+</style>
+</head>
+<body>
+<div class="app" role="application">
+  <aside class="sidebar" aria-label="Sidebar">
+    <div class="brand">
+      <div class="logo">Bz</div>
+      <div>
+        <h2>Blaze.AI</h2>
+        <div class="small">Conversas em português</div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="btn primary" id="newChatBtn">+ Novo chat</button>
+      <button class="btn" id="openLoginBtn">Entrar / Criar</button>
+    </div>
+
+    <div class="chats" id="chatsList" aria-live="polite"></div>
+
+    <div class="footer-small">Conecte-se com e-mail — segurança com JWT.</div>
+  </aside>
+
+  <main class="main">
+    <div class="header">
+      <h3 id="sessionTitle">Blaze.AI</h3>
+      <div class="tabbar" id="tabbar"></div>
+    </div>
+
+    <div class="container">
+      <div id="chatArea" class="chat-area" role="log" aria-live="polite"></div>
+
+      <div class="composer">
+        <input id="messageInput" class="input" placeholder="Digite sua pergunta..." aria-label="Mensagem"/>
+        <button class="icon-btn" id="voiceBtn" title="Ouvir">🔊</button>
+        <button class="icon-btn" id="sendBtn" title="Enviar">Enviar</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Login / Register modal -->
+<div id="authModal" class="modal" style="display:none">
+  <div class="card" role="dialog" aria-modal="true">
+    <h3 id="authTitle">Entrar</h3>
+    <div class="notice">Use seu e-mail para criar conta — verificação por e-mail.</div>
+    <div class="field">
+      <label class="small">E-mail</label>
+      <input id="authEmail" type="email" />
+    </div>
+    <div class="field" id="pwdField">
+      <label class="small">Senha</label>
+      <input id="authPassword" type="password" />
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" id="closeAuth">Cancelar</button>
+      <button class="btn primary" id="authSubmit">Entrar</button>
+    </div>
+    <div style="margin-top:10px" class="small">Não tem conta? Clique em <a href="#" id="switchToRegister">Criar conta</a></div>
+    <div style="margin-top:8px" class="small">Esqueceu senha? <a href="#" id="forgotPwd">Redefinir</a></div>
+    <div id="authError" class="small bad"></div>
+  </div>
+</div>
+
+<script>
+/* -------------- CONFIG -------------- */
+const API_BASE = ''; // se backend no mesmo domínio: '/api', se remoto: ex: 'https://meu-backend.vercel.app'
+const AUTH_ENDPOINT = API_BASE + '/api/auth';
+const CHAT_ENDPOINT = API_BASE + '/api/chat';
+const STORAGE_KEY = 'blazeai_session_v1';
+
+/* -------------- STATE -------------- */
+let state = { token:null, user:null, chats:[], activeChat:null };
+
+/* -------------- UTIL -------------- */
+function setToken(token, user){
+  state.token = token; state.user = user;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({token,user}));
+  updateUIAuth();
+}
+function clearToken(){
+  state.token = null; state.user = null;
+  localStorage.removeItem(STORAGE_KEY);
+  updateUIAuth();
+}
+function loadToken(){
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if(!raw) return;
+  try{ const obj = JSON.parse(raw); state.token = obj.token; state.user = obj.user; }catch(e){}
+}
+function fmtTime(){ return new Date().toLocaleTimeString(); }
+function showAuthModal(mode='login'){
+  document.getElementById('authModal').style.display='flex';
+  document.getElementById('authTitle').innerText = mode === 'login' ? 'Entrar' : 'Criar conta';
+  document.getElementById('authSubmit').innerText = mode === 'login' ? 'Entrar' : 'Criar';
+  document.getElementById('authError').innerText = '';
+  document.getElementById('pwdField').style.display = 'block';
+  document.getElementById('authSubmit').dataset.mode = mode;
+}
+function hideAuthModal(){ document.getElementById('authModal').style.display='none'; }
+
+/* -------------- CHAT UI -------------- */
+function addChatItem(chat){
+  const el = document.createElement('div');
+  el.className='chat-item' + (chat.id === state.activeChat ? ' active':'');
+  el.textContent = chat.title || ('Chat ' + chat.id);
+  el.onclick = ()=> { state.activeChat = chat.id; renderChats(); renderChatArea(); };
+  document.getElementById('chatsList').prepend(el);
+}
+function renderChats(){
+  const list = document.getElementById('chatsList');
+  list.innerHTML = '';
+  if(state.chats.length === 0){
+    const hint = document.createElement('div'); hint.className='small'; hint.textContent='Clique em "+ Novo chat" para começar.';
+    list.appendChild(hint);
+  } else {
+    state.chats.forEach(addChatItem);
+  }
+}
+function clearChatArea(){ document.getElementById('chatArea').innerHTML = ''; }
+function renderChatArea(){
+  const ca = document.getElementById('chatArea');
+  ca.innerHTML = '';
+  const chat = state.chats.find(c=>c.id===state.activeChat) || null;
+  if(!chat){ ca.innerHTML = '<div class="small">Nenhuma conversa selecionada.</div>'; return; }
+  chat.messages.forEach(m => {
+    const el = document.createElement('div'); el.className='msg ' + (m.role === 'user' ? 'user' : 'bot'); el.textContent = m.text;
+    ca.appendChild(el);
+  });
+  ca.scrollTop = ca.scrollHeight;
+}
+
+/* -------------- Autocorreção simples -------------- */
+const DICT = {"inteligenca":"inteligência","chagpt":"chatgpt","germine":"gpt","voçe":"você"};
+function autocorrect(text){
+  return text.split(/\s+/).map(w=>DICT[w.toLowerCase()] || w).join(' ');
+}
+
+/* -------------- NETWORK -------------- */
+async function api(path, opts={}){
+  const headers = opts.headers || {};
+  if(state.token) headers['Authorization'] = 'Bearer ' + state.token;
+  opts.headers = headers;
+  const res = await fetch(API_BASE + path, opts);
+  if(res.status === 401){ clearToken(); throw new Error('Não autorizado'); }
+  return res;
+}
+
+/* -------------- AUTH -------------- */
+document.getElementById('openLoginBtn').onclick = ()=> showAuthModal('login');
+document.getElementById('closeAuth').onclick = ()=> hideAuthModal();
+document.getElementById('switchToRegister').onclick = (e)=> { e.preventDefault(); showAuthModal('register'); };
+document.getElementById('authSubmit').onclick = async ()=>{
+  const mode = document.getElementById('authSubmit').dataset.mode || 'login';
+  const email = document.getElementById('authEmail').value.trim();
+  const pwd = document.getElementById('authPassword').value.trim();
+  if(!email || (mode==='register' && !pwd)){ document.getElementById('authError').innerText='Preencha os campos'; return; }
+  try{
+    document.getElementById('authError').innerText = 'Aguarde...';
+    if(mode==='login'){
+      const r = await fetch(AUTH_ENDPOINT + '/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pwd})});
+      const d = await r.json();
+      if(!r.ok) throw new Error(d.error || 'Erro');
+      setToken(d.token, d.user);
+      hideAuthModal();
+    } else {
+      const r = await fetch(AUTH_ENDPOINT + '/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pwd})});
+      const d = await r.json();
+      if(!r.ok) throw new Error(d.error || 'Erro');
+      document.getElementById('authError').innerText = 'Conta criada. Verifique seu e-mail.';
+    }
+  }catch(err){
+    document.getElementById('authError').innerText = err.message || 'Erro';
+  }
+};
+
+/* -------------- CHAT FLOW -------------- */
+document.getElementById('newChatBtn').onclick = ()=> {
+  const id = Date.now().toString();
+  const chat = { id, title:'Nova conversa', messages:[] };
+  state.chats.unshift(chat);
+  state.activeChat = id;
+  renderChats(); renderChatArea();
+};
+document.getElementById('sendBtn').onclick = sendMessage;
+document.getElementById('messageInput').addEventListener('keypress', e=> { if(e.key==='Enter') sendMessage(); });
+
+async function sendMessage(){
+  const textRaw = document.getElementById('messageInput').value.trim();
+  if(!textRaw) return;
+  const text = autocorrect(textRaw);
+  document.getElementById('messageInput').value = '';
+  // ensure a chat exists
+  if(!state.activeChat){
+    document.getElementById('newChatBtn').click();
+  }
+  const chat = state.chats.find(c=>c.id===state.activeChat);
+  chat.messages.push({role:'user', text, at:Date.now()});
+  renderChatArea();
+
+  // add typing placeholder
+  const placeholder = {role:'bot', text:'Blaze.AI está pensando...' };
+  chat.messages.push(placeholder);
+  renderChatArea();
+
+  try{
+    const res = await fetch(CHAT_ENDPOINT, {
+      method:'POST',
+      headers: {'Content-Type':'application/json', ...(state.token?{'Authorization':'Bearer '+state.token}:{})},
+      body: JSON.stringify({pergunta:text, chatId: state.activeChat})
+    });
+    const data = await res.json();
+    // replace last placeholder
+    chat.messages = chat.messages.filter(m=>m !== placeholder);
+    chat.messages.push({role:'bot', text: data.resposta || 'Sem resposta'});
+    renderChatArea();
+  }catch(err){
+    chat.messages = chat.messages.filter(m=>m !== placeholder);
+    chat.messages.push({role:'bot', text: 'Erro: ' + (err.message||'falha na conexão')});
+    renderChatArea();
+  }
+}
+
+/* -------------- VOICE -------------- */
+document.getElementById('voiceBtn').onclick = ()=>{
+  const msgs = state.chats.find(c=>c.id===state.activeChat)?.messages || [];
+  const last = [...msgs].reverse().find(m=>m.role==='bot');
+  if(!last) return;
+  const u = new SpeechSynthesisUtterance(last.text);
+  u.lang = 'pt-BR';
+  speechSynthesis.speak(u);
+};
+
+/* -------------- INIT -------------- */
+function updateUIAuth(){
+  if(state.user){
+    document.getElementById('sessionTitle').innerText = 'Olá, ' + (state.user.email || 'usuário');
+    document.getElementById('openLoginBtn').innerText = 'Sair';
+    document.getElementById('openLoginBtn').onclick = ()=> { clearToken(); location.reload(); };
+  } else {
+    document.getElementById('sessionTitle').innerText = 'Blaze.AI';
+    document.getElementById('openLoginBtn').innerText = 'Entrar / Criar';
+    document.getElementById('openLoginBtn').onclick = ()=> showAuthModal('login');
+  }
+}
+loadToken();
+updateUIAuth();
+renderChats();
+renderChatArea();
+</script>
+</body>
+</html>
